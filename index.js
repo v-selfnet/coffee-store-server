@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); // create envirnment file .env in root directory
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -23,15 +23,73 @@ const client = new MongoClient(uri, {
   }
 });
 
-async function run() {
+const run = async () => {
   try {
     await client.connect();
+
+    // create database & collection [table]
+    const coffeeCollection = client.db('coffeeDB').collection('coffee');
+
+    // 1 receive data from client [C - Create POST]
+    app.post('/coffee', async (req, res) => {
+        // receive data from client
+        const newCoffee = req.body;
+        console.log(newCoffee)
+        // add received data to MongoDB
+        const result = await coffeeCollection.insertOne(newCoffee);
+        res.send(result); // sent to client
+    })
+
+    // 2 show data on server [R - READ] http://localhost:5000/coffee
+    app.get('/coffee', async (req, res) => {
+        const result = await coffeeCollection.find().toArray()
+        res.send(result);
+    })
+
+    // find id specific & redirect to update page for make  [U - Update] operation
+    app.get('/coffee/:id', async (req, res) => {
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)}
+        const result = await coffeeCollection.findOne(query);
+        res.send(result);
+    })
+
+    // [U - Update] mongodb via server
+    app.put('/coffee/:id', async (req, res) => {
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)}
+        const option = {upsert: true} 
+        const updatedCoffee = req.body;
+        const coffee = {
+            $set: {
+                name: updatedCoffee.name,
+                quantity: updatedCoffee.quantity,
+                supplier: updatedCoffee.supplier,
+                taste: updatedCoffee.taste,
+                category: updatedCoffee.category,
+                detail: updatedCoffee.detail,
+                photo: updatedCoffee.photo,
+            }
+        }
+        const result = await coffeeCollection.updateOne(filter, coffee, option);
+        res.send(result)
+    })
+
+    // [D - Delete]
+    app.delete('/coffee/:id', async (req, res) => {
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)};
+        const result = await coffeeCollection.deleteOne(query)
+        res.send(result);
+    })
+
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment . You successfully connected to MongoDB!");
+    console.log("Pinged [Coffee Store Server] successfully connected to MongoDB!");
+    
   } finally {
     // await client.close();
   }
-}
+} 
 run().catch(console.dir);
 
 
